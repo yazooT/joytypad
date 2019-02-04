@@ -1,0 +1,11 @@
+{
+  "top": {
+    "null": {
+      "1": {"view": "あ", "value": "a" },
+      "2": {"view": "い", "value": "i" },
+      "3": {"view": "う", "value": "u" },
+      "4": {"view": "え", "value": "e" },
+      "10": {"view": "お", "value": "o" }
+    }
+  }
+}
