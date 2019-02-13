@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.Pane?>
+
+<Pane prefHeight="400.0" prefWidth="400.0" style="-fx-background-color: rgba(0, 0, 0, 0.1);" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="joytypad.CheatsheetCtrl">
+   <children>
+      <Pane fx:id="up" layoutX="155.0" prefHeight="90.0" prefWidth="90.0" />
+      <Pane fx:id="down" layoutX="155.0" layoutY="310.0" prefHeight="90.0" prefWidth="90.0" />
+      <Pane fx:id="right" layoutX="310.0" layoutY="155.0" prefHeight="90.0" prefWidth="90.0" />
+      <Pane fx:id="left" layoutY="155.0" prefHeight="90.0" prefWidth="90.0" />
+      <Pane fx:id="center" layoutX="155.0" layoutY="155.0" prefHeight="90.0" prefWidth="90.0" />
+      <Pane fx:id="upRight" layoutX="265.0" layoutY="45.0" prefHeight="90.0" prefWidth="90.0" />
+      <Pane fx:id="downRight" layoutX="265.0" layoutY="265.0" prefHeight="90.0" prefWidth="90.0" />
+      <Pane fx:id="downLeft" layoutX="45.0" layoutY="265.0" prefHeight="90.0" prefWidth="90.0" />
+      <Pane fx:id="upLeft" layoutX="45.0" layoutY="45.0" prefHeight="90.0" prefWidth="90.0" />
+   </children>
+</Pane>

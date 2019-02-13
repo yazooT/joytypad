@@ -25,30 +25,29 @@ var isLbDown: Boolean = false
 var isRbDown: Boolean = false
 var inputMode = InputMode.SEION
 
-val keyMap: KeyMap = KeyMap()
+//val keyMap: KeyMap = KeyMap()
 val editKeyMap: EditKeyMap = EditKeyMap()
-val robot: Robot = Robot()
 
 fun setKeyMap() {
-    keyMap.nan.seion
-        .one("あ", "a")
-        .two("い", "i")
-        .three("う", "u")
-        .four("え", "e")
-        .five("お", "o")
-    keyMap.nan.sokuon
-        .one("ぁ", "l", "a")
-        .two("ぃ", "l", "i")
-        .three("ぅ", "l", "u")
-        .four("ぇ", "l", "e")
-        .five("ぉ", "l", "o")
-    
-    keyMap.top.seion
-        .one("か", "k", "a")
-        .two("き", "k", "i")
-        .three("く", "k", "u")
-        .four("け", "k", "e")
-        .five("こ", "k", "o")
+//    keyMap.nan.seion
+//        .one("あ", "a")
+//        .two("い", "i")
+//        .three("う", "u")
+//        .four("え", "e")
+//        .five("お", "o")
+//    keyMap.nan.sokuon
+//        .one("ぁ", "l", "a")
+//        .two("ぃ", "l", "i")
+//        .three("ぅ", "l", "u")
+//        .four("ぇ", "l", "e")
+//        .five("ぉ", "l", "o")
+//
+//    keyMap.top.seion
+//        .one("か", "k", "a")
+//        .two("き", "k", "i")
+//        .three("く", "k", "u")
+//        .four("け", "k", "e")
+//        .five("こ", "k", "o")
 }
 
 /**
@@ -56,7 +55,7 @@ fun setKeyMap() {
  * @param x スティックのx軸の値
  * @param y スティックのy軸の値
  */
-fun getDirection(x: Double, y: Double): Direction {
+fun getDirection2(x: Double, y: Double): Direction {
     val degree = Math.atan2(x, y) * 180 / Math.PI
     return when (degree) {
         in -22.5..22.5 -> {
@@ -125,7 +124,7 @@ fun main(args: Array<String>) {
         }
 
         // 左スティックの方向を調べます
-        if (direction != Direction.PRESSED) direction = getDirection(x, y)
+        if (direction != Direction.PRESSED) direction = getDirection2(x, y)
 
         // 入力モードを調べます
         inputMode = when {
@@ -156,16 +155,16 @@ fun main(args: Array<String>) {
 
             println("button$name was pressed")
             println("direction: $direction, onsetsu: $inputMode")
-            val hoge: List<Int> = run {
-                val keycode = keyMap.onsetsu(direction).outputs(inputMode).output(name).keycode
-                if (!keycode.isEmpty()) return@run keycode
-                else return@run editKeyMap.get(name)
-            }
-
-            hoge.forEach { i ->
-                robot.keyPress(i)
-                robot.keyRelease(i)
-            }
+//            val hoge: List<Int> = press {
+//                val keycode = keyMap.onsetsu(direction).outputs(inputMode).output(name).keycode
+//                if (!keycode.isEmpty()) return@press keycode
+//                else return@press editKeyMap.get(name)
+//            }
+//
+//            hoge.forEach { i ->
+//                robot.keyPress(i)
+//                robot.keyRelease(i)
+//            }
         }
 
         Thread.sleep(25)

@@ -2,49 +2,78 @@ package joytypad
 
 import java.awt.event.KeyEvent
 import java.lang.reflect.Field
-import java.lang.reflect.Modifier
 
 class KeyMap {
-    val nan: Onsetsu = Onsetsu()
-    val top: Onsetsu = Onsetsu()
-    val topRight: Onsetsu = Onsetsu()
-    val right: Onsetsu = Onsetsu()
-    val downRight: Onsetsu = Onsetsu()
-    val down: Onsetsu = Onsetsu()
-    val downLeft: Onsetsu = Onsetsu()
-    val left: Onsetsu = Onsetsu()
-    val topLeft: Onsetsu = Onsetsu()
-    val pressed: Onsetsu = Onsetsu()
+    val tags = mutableListOf<String>()
 
-    fun onsetsu(direction: Direction): Onsetsu {
-        return when (direction) {
-            Direction.NAN -> this.nan
-            Direction.TOP -> this.top
-            Direction.TOP_LEFT -> this.topLeft
-            Direction.LEFT -> this.left
-            Direction.DOWN_LEFT -> this.downLeft
-            Direction.DOWN -> this.down
-            Direction.DOWN_RIGHT -> this.downRight
-            Direction.RIGHT -> this.right
-            Direction.TOP_RIGHT -> this.topRight
-            Direction.PRESSED -> this.pressed
+    var text: String
+        private set
+
+    var keyEvents = mutableListOf<Int>()
+        private set
+
+    /**
+     * @param text GUI上に表示される文字
+     * @param keys エミュレートするキーボードのキー。
+     *              "か"の設定をしたい場合はKeyMap("か", "k", "a")としてください。
+     *              "@"などの特殊文字を設定したい場合はKeyMap("@", "at")のように
+     *              対応する文字列を与えてください。
+     */
+    constructor(text: String, vararg keys: String) {
+        this.text = text
+        keys.forEach {
+            val keyEvent = it.toKeyEvent()
+            if (keyEvent != null) this.keyEvents.add(keyEvent)
         }
     }
+
+    constructor(text: String, vararg keys: Int) {
+        this.text = text
+        keys.forEach {
+            this.keyEvents.add(it)
+        }
+    }
+
+    fun addTags(vararg tags: String) {
+        this.tags.addAll(tags)
+    }
+
+    /**
+     * タグを持っているかを判定します。持っている場合、trueを返します。
+     * @param tags 検索したいタグ
+     * @param isExactMatch 完全一致か部分一致かを設定する引数。完全一致判定をしたい場合、trueを与えてください。
+     */
+    fun hasTags(vararg tags: String, isExactMatch: Boolean = false): Boolean {
+        if (isExactMatch && this.tags.size != tags.size) return false
+        return this.tags.containsAll(listOf(*tags))
+    }
+
+    /**
+     * 指定したタグを持っていないかを判定します。ひとつでも指定したタグ持っている場合、falseを返します。
+     * @param tags 検索したいタグ
+     */
+    fun hasNoTags(vararg tags: String): Boolean {
+        tags.forEach { tag: String ->
+            if (this.tags.contains(tag)) return false
+        }
+        return true
+    }
+
 }
 
-class Onsetsu {
-    val seion: Outputs = Outputs()
-    val dakuon: Outputs = Outputs()
-    val handakuon: Outputs = Outputs()
-    val sokuon: Outputs = Outputs()
-
-    fun outputs(inputMode: InputMode): Outputs {
-        return when (inputMode) {
-            InputMode.SEION -> this.seion
-            InputMode.DAKUON -> this.dakuon
-            InputMode.HANDAKUON -> this.handakuon
-            InputMode.SOKUON -> this.sokuon
-        }
+/**
+ * 文字列をKeyEventへと変換します
+ */
+ private fun String.toKeyEvent(): Int? {
+    val name = "VK_${this.toUpperCase()}"
+    val clazz: Class<KeyEvent> = KeyEvent::class.java
+    val field: Field? = clazz.fields
+        .filter { it?.name == name }
+        .firstOrNull()
+    val keyEvent = field?.get(clazz)
+    return when (keyEvent) {
+        is Int -> keyEvent
+        else -> null
     }
 }
 
@@ -52,79 +81,6 @@ class Onsetsu {
  * ゲームパッドのボタンの番号を表現します
  */
 typealias ButtonNum = String
-
-class Outputs {
-    private var one: Output = Output()
-    private var two: Output = Output()
-    private var three: Output = Output()
-    private var four: Output = Output()
-    private var five: Output = Output()
-
-    fun one(text: String, vararg keycode: String): Two {
-        this.one = Output(text, getKeyCodes(keycode))
-        return this.Two()
-    }
-
-    inner class Two {
-        fun two(text: String, vararg keycode: String): Three {
-            two = Output(text, getKeyCodes(keycode))
-            return Three()
-        }
-    }
-
-    inner class Three {
-        fun three(text: String, vararg keycode: String): Four {
-            three = Output(text, getKeyCodes(keycode))
-            return Four()
-        }
-    }
-
-    inner class Four {
-        fun four(text: String, vararg keycode: String): Five {
-            four = Output(text, getKeyCodes(keycode))
-            return Five()
-        }
-    }
-
-    inner class Five {
-        fun five(text: String, vararg keycode: String) {
-            five = Output(text, getKeyCodes(keycode))
-        }
-    }
-
-    fun output(button: ButtonNum): Output {
-        return when (button) {
-            TypeButton.ONE.num -> this.one
-            TypeButton.TWO.num -> this.two
-            TypeButton.THREE.num -> this.three
-            TypeButton.FOUR.num -> this.four
-            TypeButton.FIVE.num -> this.five
-            else -> Output()
-        }
-    }
-
-    fun getKeyCodes(keys: Array<out String>): List<Int> {
-        return keys.map { s -> getKeyEvent(s) }.filterNotNull()
-    }
-
-    fun getKeyEvent(key: String): Int? {
-        val name = "VK_${key.toUpperCase()}"
-        val clazz: Class<KeyEvent> = KeyEvent::class.java
-        val field: Field? = clazz.fields
-            .filter { field: Field? -> field?.name == name }
-            .firstOrNull()
-        val keyEvent = field?.get(clazz)
-        return when (keyEvent) {
-            is Int -> keyEvent
-            else -> null
-        }
-    }
-}
-
-data class Output(
-    val text: String = "",
-    val keycode: List<Int> = listOf()
-)
 
 enum class Direction {
     TOP, DOWN, RIGHT, LEFT, TOP_RIGHT, TOP_LEFT, DOWN_RIGHT, DOWN_LEFT, NAN, PRESSED
@@ -164,4 +120,239 @@ class EditKeyMap {
             else -> listOf()
         }
     }
+}
+
+fun String?.toArray(): Array<String> {
+    return this?.split("")?.toTypedArray() ?: arrayOf("")
+}
+
+/**
+ * 五十音すべてを網羅したKeyMapのListを返します。
+ * @return 五十音すべてを網羅したKeyMapのList
+ */
+fun getKeyMaps(): MutableList<KeyBind> {
+    val keyEventBind = { name: String, keyEvents: List<Int> ->
+        KeyBind(name) {
+            keyEvents.forEach {
+                robot.keyPress(it)
+            }
+        }
+    }
+
+    val typeBind = { name: String, keys: List<String> ->
+        val keyEvents = keys.mapNotNull { it.toKeyEvent() }
+        keyEventBind(name, keyEvents)
+    }
+
+    val longPressBind = { name: String, key: String ->
+        val keyEvent = key.toKeyEvent()
+        LongPressKeyBind(name) {
+            if (keyEvent != null) robot.keyPress(keyEvent)
+        }
+    }
+
+    val kanaTable = getHiraganaTable()
+    val keyMaps = mutableListOf<KeyBind>()
+
+    keyMaps.addAll(run {
+        val specialCharacters = mutableListOf<KeyBind>()
+
+        specialCharacters.add(
+            longPressBind("Back Space", "back_space")
+                .apply { this.bindEvents(PadEvents.BACK) }
+        )
+
+        specialCharacters.add(
+            typeBind("Space", listOf("space"))
+                .apply { this.bindEvents(PadEvents.LT) }
+        )
+
+        specialCharacters.add(
+            keyEventBind("全角/半角", listOf(244))
+                .apply { this.bindEvents(PadEvents.POWER) }
+        )
+
+
+        specialCharacters.add(
+            typeBind("Enter", listOf("enter"))
+                .apply { this.bindEvents(PadEvents.START) }
+        )
+
+        specialCharacters.add(
+            longPressBind("↑", "up")
+                .apply { this.bindEvents(PadEvents.POV_UP) }
+        )
+
+        specialCharacters.add(
+            longPressBind("→", "right")
+                .apply { this.bindEvents(PadEvents.POV_RIGHT) }
+        )
+
+        specialCharacters.add(
+            longPressBind("↓", "down")
+                .apply { this.bindEvents(PadEvents.POV_DOWN) }
+        )
+
+        specialCharacters.add(
+            longPressBind("←", "left")
+                .apply { this.bindEvents(PadEvents.POV_LEFT) }
+        )
+
+        specialCharacters.forEach { it.bindEvents(PadEvents.CENTER) }
+
+        specialCharacters.add(
+            typeBind("ー", listOf("minus"))
+                .apply { this.bindEvents(PadEvents.PRESS, PadEvents.RT) }
+        )
+
+        specialCharacters
+    })
+
+    val getGyou = {a: String, i: String, u: String, e: String, o: String, direction: PadEvents ->
+        val gyou = mutableListOf<KeyBind>()
+        gyou.add(typeBind(a, kanaTable[a]?.split("") ?: listOf()))
+        gyou.add(typeBind(i, kanaTable[i]?.split("") ?: listOf()))
+        gyou.add(typeBind(u, kanaTable[u]?.split("") ?: listOf()))
+        gyou.add(typeBind(e, kanaTable[e]?.split("") ?: listOf()))
+        gyou.add(typeBind(o, kanaTable[o]?.split("") ?: listOf()))
+        gyou[0].bindEvents(PadEvents.Y)
+        gyou[1].bindEvents(PadEvents.B)
+        gyou[2].bindEvents(PadEvents.A)
+        gyou[3].bindEvents(PadEvents.X)
+        gyou[4].bindEvents(PadEvents.RT)
+        gyou.forEach { it.bindEvents(direction) } 
+        gyou
+    }
+
+    keyMaps.addAll( run {
+        val seion = mutableListOf<KeyBind>()
+        seion.addAll(getGyou("あ", "い", "う", "え", "お", PadEvents.CENTER))
+        seion.addAll(getGyou("か", "き", "く", "け", "こ", PadEvents.UP))
+        seion.addAll(getGyou("さ", "し", "す", "せ", "そ", PadEvents.UP_RIGHT))
+        seion.addAll(getGyou("た", "ち", "つ", "て", "と", PadEvents.RIGHT))
+        seion.addAll(getGyou("な", "に", "ぬ", "ね", "の", PadEvents.DOWN_RIGHT))
+        seion.addAll(getGyou("は", "ひ", "ふ", "へ", "ほ", PadEvents.DOWN))
+        seion.addAll(getGyou("ま", "み", "む", "め", "も", PadEvents.DOWN_LEFT))
+        seion.addAll(getGyou("や", "", "ゆ", "", "よ", PadEvents.LEFT))
+        seion.addAll(getGyou("ら", "り", "る", "れ", "ろ", PadEvents.UP_LEFT))
+        seion.addAll(getGyou("わ", "を", "ん", "", "", PadEvents.PRESS))
+        seion
+    })
+
+    keyMaps.addAll(run {
+        val dakuon = mutableListOf<KeyBind>()
+        dakuon.addAll(getGyou("が", "ぎ", "ぐ", "げ", "ご", PadEvents.UP))
+        dakuon.addAll(getGyou("ざ", "じ", "ず", "ぜ", "ぞ", PadEvents.UP_RIGHT))
+        dakuon.addAll(getGyou("だ", "ぢ", "づ", "で", "ど", PadEvents.RIGHT))
+        dakuon.addAll(getGyou("ば", "び", "ぶ", "べ", "ぼ", PadEvents.DOWN))
+        dakuon.forEach { it.bindEvents(PadEvents.LB) }
+        dakuon
+    })
+
+    keyMaps.addAll(run {
+        val handakuon = mutableListOf<KeyBind>()
+        handakuon.addAll(getGyou("ぱ", "ぴ", "ぷ", "ぺ", "ぽ", PadEvents.DOWN))
+        handakuon.forEach { it.bindEvents(PadEvents.RB) }
+        handakuon
+    })
+
+    keyMaps.addAll(run {
+        val sokuon = mutableListOf<KeyBind>()
+        sokuon.addAll(getGyou("ぁ", "ぃ", "ぅ", "ぇ", "ぉ", PadEvents.CENTER))
+        sokuon.addAll(getGyou("", "", "っ", "", "", PadEvents.RIGHT))
+        sokuon.addAll(getGyou("ゃ", "", "ゅ", "", "ょ", PadEvents.LEFT))
+        sokuon.forEach { it.bindEvents(PadEvents.LB, PadEvents.RB) }
+        sokuon
+    })
+
+    return keyMaps
+}
+
+/**
+ * 五十音とローマ字の対応表のMapを返します。
+ * @return ひらがなをkey、ローマ字をvalueに割り当てたMap
+ */
+fun getHiraganaTable(): MutableMap<String, String> {
+    val m = mutableMapOf<String, String>()
+    m["あ"] = "a"
+    m["い"] = "i"
+    m["う"] = "u"
+    m["え"] = "e"
+    m["お"] = "o"
+    m["か"] = "ka"
+    m["き"] = "ki"
+    m["く"] = "ku"
+    m["け"] = "ke"
+    m["こ"] = "ko"
+    m["さ"] = "sa"
+    m["し"] = "shi"
+    m["す"] = "su"
+    m["せ"] = "se"
+    m["そ"] = "so"
+    m["た"] = "ta"
+    m["ち"] = "chi"
+    m["つ"] = "tu"
+    m["て"] = "te"
+    m["と"] = "to"
+    m["な"] = "na"
+    m["に"] = "ni"
+    m["ぬ"] = "nu"
+    m["ね"] = "ne"
+    m["の"] = "no"
+    m["は"] = "ha"
+    m["ひ"] = "hi"
+    m["ふ"] = "fu"
+    m["へ"] = "he"
+    m["ほ"] = "ho"
+    m["ま"] = "ma"
+    m["み"] = "mi"
+    m["む"] = "mu"
+    m["め"] = "me"
+    m["も"] = "mo"
+    m["や"] = "ya"
+    m["ゆ"] = "yu"
+    m["よ"] = "yo"
+    m["ら"] = "ra"
+    m["り"] = "ri"
+    m["る"] = "ru"
+    m["れ"] = "re"
+    m["ろ"] = "ro"
+    m["わ"] = "wa"
+    m["を"] = "wo"
+    m["ん"] = "n"
+    m["が"] = "ga"
+    m["ぎ"] = "gi"
+    m["ぐ"] = "gu"
+    m["げ"] = "ge"
+    m["ご"] = "go"
+    m["ざ"] = "za"
+    m["じ"] = "zi"
+    m["ず"] = "zu"
+    m["ぜ"] = "ze"
+    m["ぞ"] = "zo"
+    m["だ"] = "da"
+    m["ぢ"] = "di"
+    m["づ"] = "du"
+    m["で"] = "de"
+    m["ど"] = "do"
+    m["ば"] = "ba"
+    m["び"] = "bi"
+    m["ぶ"] = "bu"
+    m["べ"] = "be"
+    m["ぼ"] = "bo"
+    m["ぱ"] = "pa"
+    m["ぴ"] = "pi"
+    m["ぷ"] = "pu"
+    m["ぺ"] = "pe"
+    m["ぽ"] = "po"
+    m["ぁ"] = "la"
+    m["ぃ"] = "li"
+    m["ぅ"] = "lu"
+    m["ぇ"] = "le"
+    m["ぉ"] = "lo"
+    m["っ"] = "ltu"
+    m["ゃ"] = "lya"
+    m["ゅ"] = "lyu"
+    m["ょ"] = "lyo"
+    return m
 }
