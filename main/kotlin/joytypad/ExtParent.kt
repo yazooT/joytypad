@@ -44,7 +44,7 @@ class ExtParent {
         // abxy-circleをcheatsheetに割り当てます
         val cheatsheet: Pair<Parent, CheatsheetCtrl> = this.getPareCtrl(this.CHEATSHEET_FXML)
         cheatsheet.second.setPane(parents)
-        this.parent = cheatsheet.first//.apply { this.style = "-fx-background-color: transparent;" }
+        this.parent = cheatsheet.first.apply { this.style = "-fx-background-color: transparent;" }
     }
 
     private fun <T: Initializable> getPareCtrl(fxmlDir: String): Pair<Parent, T> {

@@ -4,7 +4,6 @@ import javafx.application.Application
 import javafx.application.Platform
 import javafx.scene.Scene
 import javafx.scene.paint.Color
-import javafx.stage.Modality
 import javafx.stage.Stage
 import javafx.stage.StageStyle
 import net.java.games.input.Controller
@@ -12,8 +11,6 @@ import net.java.games.input.ControllerEnvironment
 import net.java.games.input.Event
 import java.awt.GraphicsEnvironment
 import java.awt.Robot
-import javax.swing.JFrame
-import javax.xml.bind.JAXBElement
 import kotlin.concurrent.thread
 
 private lateinit var stage: Stage
@@ -28,7 +25,9 @@ val robot = Robot()
 var isEnable = true
 
 fun main(args: Array<String>) {
+    // Stage.hide()でプログラムが終了しないようにします
     Platform.setImplicitExit(false)
+
     Application.launch(AppMain().javaClass)
 }
 
@@ -46,18 +45,17 @@ class AppMain: Application(){
             .filter { it.hasNoEvents(PadEvents.LB) })
 
         sokuon = ExtParent(keyMaps
-            .filter { it.hasEvents(PadEvents.LB, PadEvents.RB) })
+            .filter { it.hasAllEvents(PadEvents.LB, PadEvents.RB) })
 
         stage = stg
-        stage.title = "JoyTyPad"
-        stage.initStyle(StageStyle.TRANSPARENT)
-
-        stage.scene = Scene(seion.parent, Color.TRANSPARENT)
-
-        stage.isAlwaysOnTop = true
-
-        stage.requestFocus()
-        stage.show()
+        stage.apply {
+            title = "JoyTyPad"
+            scene = Scene(seion.parent, Color.TRANSPARENT)
+            initStyle(StageStyle.TRANSPARENT)
+            isAlwaysOnTop = true
+            show()
+            requestFocus()
+        }
 
         val watcher = GamepadWatcher()
         watcher.start()
@@ -70,6 +68,7 @@ class GamepadWatcher: Thread() {
     private val displayHeight: Int
     private val guiWidth = 400
     private val guiHeight = 400
+    private val deadzone = 0.20
 
     init {
         val controllers = ControllerEnvironment.getDefaultEnvironment().controllers
@@ -83,8 +82,14 @@ class GamepadWatcher: Thread() {
 
     override fun run() {
         while (true) {
-            this.monitorGamePad()
-            Thread.sleep(30)
+            try {
+                this.monitorGamePad()
+                Thread.sleep(30)
+            } catch (e: NullPointerException) {
+                e.printStackTrace()
+            } catch (e: ConcurrentModificationException) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -154,13 +159,13 @@ class GamepadWatcher: Thread() {
                 component.pollData == 0.0f
             ) {
                 when {
-                    isEnable -> {
-                        isEnable = false
-                        Platform.runLater { stage.hide() }
-                    }
-                    !isEnable -> {
+                    gamePadState.contains(PadEvents.LB) -> {
                         isEnable = true
                         Platform.runLater { stage.show() }
+                    }
+                    else -> {
+                        isEnable = false
+                        Platform.runLater { stage.hide() }
                     }
                 }
             }
@@ -173,7 +178,7 @@ class GamepadWatcher: Thread() {
 
             // 入力情報からキーバインド候補を取得します
             val output: KeyBind? = keyMaps
-                .firstOrNull { it.hasAllEvents(*gamePadState.toTypedArray()) }
+                .firstOrNull { it.matchPerfectly(*gamePadState.toTypedArray()) }
 
             output ?: continue@que
             thread { output.press() }

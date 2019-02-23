@@ -3,68 +3,84 @@ package joytypad
 import java.awt.event.KeyEvent
 import java.lang.reflect.Field
 
-class KeyMap {
-    val tags = mutableListOf<String>()
+open class KeyBind {
+    val name: String
+    private val events = mutableListOf<PadEvents>()
+    private val pressAction: () -> Unit
 
-    var text: String
-        private set
+    constructor(name: String, pressAction: () -> Unit) {
+        this.name = name
+        this.pressAction = pressAction
+    }
 
-    var keyEvents = mutableListOf<Int>()
-        private set
+    fun bindEvents(vararg events: PadEvents) {
+        this.events.addAll(events)
+    }
 
-    /**
-     * @param text GUI上に表示される文字
-     * @param keys エミュレートするキーボードのキー。
-     *              "か"の設定をしたい場合はKeyMap("か", "k", "a")としてください。
-     *              "@"などの特殊文字を設定したい場合はKeyMap("@", "at")のように
-     *              対応する文字列を与えてください。
-     */
-    constructor(text: String, vararg keys: String) {
-        this.text = text
-        keys.forEach {
-            val keyEvent = it.toKeyEvent()
-            if (keyEvent != null) this.keyEvents.add(keyEvent)
+    open fun press() {
+        if (isEnable) this.pressAction()
+    }
+
+    open fun release() {}
+
+    fun hasEvents(vararg events: PadEvents): Boolean {
+        events.forEach {
+            if (this.events.contains(it)) return true
         }
+        return false
     }
 
-    constructor(text: String, vararg keys: Int) {
-        this.text = text
-        keys.forEach {
-            this.keyEvents.add(it)
-        }
-    }
-
-    fun addTags(vararg tags: String) {
-        this.tags.addAll(tags)
-    }
-
-    /**
-     * タグを持っているかを判定します。持っている場合、trueを返します。
-     * @param tags 検索したいタグ
-     * @param isExactMatch 完全一致か部分一致かを設定する引数。完全一致判定をしたい場合、trueを与えてください。
-     */
-    fun hasTags(vararg tags: String, isExactMatch: Boolean = false): Boolean {
-        if (isExactMatch && this.tags.size != tags.size) return false
-        return this.tags.containsAll(listOf(*tags))
-    }
-
-    /**
-     * 指定したタグを持っていないかを判定します。ひとつでも指定したタグ持っている場合、falseを返します。
-     * @param tags 検索したいタグ
-     */
-    fun hasNoTags(vararg tags: String): Boolean {
-        tags.forEach { tag: String ->
-            if (this.tags.contains(tag)) return false
+    fun matchPerfectly(vararg events: PadEvents): Boolean {
+        if (this.events.size != events.size) return false
+        events.forEach {
+            if (!this.events.contains(it)) return false
         }
         return true
     }
 
+    fun hasAllEvents(vararg events: PadEvents): Boolean {
+        events.forEach {
+            if (!this.events.contains(it)) return false
+        }
+        return true
+    }
+
+    fun hasNoEvents(vararg events: PadEvents): Boolean {
+        events.forEach {
+            if (this.events.contains(it)) return false
+        }
+        return true
+    }
+}
+
+class LongPressKeyBind(name: String, pressAction: () -> Unit): KeyBind(name, pressAction) {
+    private var isDown = false
+    private val waitTime = 700L
+    private val repeatSpeed = 100L
+
+    override fun press() {
+        if (!isEnable) return
+        super.press()
+        this.isDown = true
+        Thread.sleep(this.waitTime)
+        while (this.isDown) {
+            if (!isEnable) return
+            super.press()
+            Thread.sleep(this.repeatSpeed)
+        }
+    }
+
+    override fun release() {
+        if (!isEnable) return
+        super.release()
+        this.isDown = false
+    }
 }
 
 /**
  * 文字列をKeyEventへと変換します
  */
- private fun String.toKeyEvent(): Int? {
+private fun String.toKeyEvent(): Int? {
     val name = "VK_${this.toUpperCase()}"
     val clazz: Class<KeyEvent> = KeyEvent::class.java
     val field: Field? = clazz.fields
@@ -74,51 +90,6 @@ class KeyMap {
     return when (keyEvent) {
         is Int -> keyEvent
         else -> null
-    }
-}
-
-/**
- * ゲームパッドのボタンの番号を表現します
- */
-typealias ButtonNum = String
-
-enum class Direction {
-    TOP, DOWN, RIGHT, LEFT, TOP_RIGHT, TOP_LEFT, DOWN_RIGHT, DOWN_LEFT, NAN, PRESSED
-}
-
-enum class InputMode {
-    SEION, DAKUON, HANDAKUON, SOKUON
-}
-
-enum class TypeButton(val num: ButtonNum) {
-    ONE("3"),
-    TWO("1"),
-    THREE("0"),
-    FOUR("2"),
-    FIVE("11")
-}
-
-enum class EditButton(val num: ButtonNum) {
-    ENTER("6"),
-    BACK_SPACE("7"),
-    SPACE("9"),
-    ZEN_HAN("12")
-}
-
-class EditKeyMap {
-    val enter = listOf(KeyEvent.VK_ENTER)
-    val backSpace = listOf(KeyEvent.VK_BACK_SPACE)
-    val space = listOf(KeyEvent.VK_SPACE)
-    val zenHan = listOf(244)
-
-    fun get(num: ButtonNum): List<Int> {
-        return when (num) {
-            EditButton.ENTER.num -> this.enter
-            EditButton.BACK_SPACE.num -> this.backSpace
-            EditButton.SPACE.num -> this.space
-            EditButton.ZEN_HAN.num -> this.zenHan
-            else -> listOf()
-        }
     }
 }
 
@@ -136,6 +107,9 @@ fun getKeyMaps(): MutableList<KeyBind> {
             keyEvents.forEach {
                 robot.keyPress(it)
             }
+            keyEvents.forEach {
+                robot.keyRelease(it)
+            }
         }
     }
 
@@ -144,10 +118,11 @@ fun getKeyMaps(): MutableList<KeyBind> {
         keyEventBind(name, keyEvents)
     }
 
-    val longPressBind = { name: String, key: String ->
-        val keyEvent = key.toKeyEvent()
+    val longPressBind = { name: String, keys: List<String> ->
+        val keyEvents = keys.mapNotNull { it.toKeyEvent() }
         LongPressKeyBind(name) {
-            if (keyEvent != null) robot.keyPress(keyEvent)
+            keyEvents.forEach { robot.keyPress(it) }
+            keyEvents.forEach { robot.keyRelease(it) }
         }
     }
 
@@ -158,7 +133,7 @@ fun getKeyMaps(): MutableList<KeyBind> {
         val specialCharacters = mutableListOf<KeyBind>()
 
         specialCharacters.add(
-            longPressBind("Back Space", "back_space")
+            longPressBind("Back Space", listOf("back_space"))
                 .apply { this.bindEvents(PadEvents.BACK) }
         )
 
@@ -179,23 +154,33 @@ fun getKeyMaps(): MutableList<KeyBind> {
         )
 
         specialCharacters.add(
-            longPressBind("↑", "up")
+            longPressBind("↑", listOf("up"))
                 .apply { this.bindEvents(PadEvents.POV_UP) }
         )
 
         specialCharacters.add(
-            longPressBind("→", "right")
+            longPressBind("→", listOf("right"))
                 .apply { this.bindEvents(PadEvents.POV_RIGHT) }
         )
 
         specialCharacters.add(
-            longPressBind("↓", "down")
+            longPressBind("↓", listOf("down"))
                 .apply { this.bindEvents(PadEvents.POV_DOWN) }
         )
 
         specialCharacters.add(
-            longPressBind("←", "left")
+            longPressBind("←", listOf("left"))
                 .apply { this.bindEvents(PadEvents.POV_LEFT) }
+        )
+
+        specialCharacters.add(
+            longPressBind("SHIFT + →", listOf("shift" ,"right"))
+                .apply { this.bindEvents(PadEvents.LB, PadEvents.POV_RIGHT) }
+        )
+
+        specialCharacters.add(
+            longPressBind("SHIFT + ←", listOf("shift", "left"))
+                .apply { this.bindEvents(PadEvents.LB, PadEvents.POV_LEFT) }
         )
 
         specialCharacters.forEach { it.bindEvents(PadEvents.CENTER) }
@@ -203,6 +188,41 @@ fun getKeyMaps(): MutableList<KeyBind> {
         specialCharacters.add(
             typeBind("ー", listOf("minus"))
                 .apply { this.bindEvents(PadEvents.PRESS, PadEvents.RT) }
+        )
+
+        specialCharacters.add(
+            typeBind("!", listOf("SHIFT", "1"))
+                .apply { this.bindEvents(PadEvents.RB, PadEvents.UP_RIGHT, PadEvents.Y) }
+        )
+
+        specialCharacters.add(
+            typeBind("?", listOf("SHIFT", "SLASH"))
+                .apply { this.bindEvents(PadEvents.RB, PadEvents.UP_RIGHT, PadEvents.A) }
+        )
+
+        specialCharacters.add(
+            typeBind("(", listOf("SHIFT", "8"))
+                .apply { this.bindEvents(PadEvents.RB, PadEvents.UP_RIGHT, PadEvents.X) }
+        )
+
+        specialCharacters.add(
+            typeBind(")", listOf("SHIFT", "9"))
+                .apply { this.bindEvents(PadEvents.RB, PadEvents.UP_RIGHT, PadEvents.B) }
+        )
+
+        specialCharacters.add(
+            typeBind("、", listOf("COMMA"))
+                .apply { this.bindEvents(PadEvents.LEFT, PadEvents.B) }
+        )
+
+        specialCharacters.add(
+            typeBind("。", listOf("PERIOD"))
+                .apply { this.bindEvents(PadEvents.LEFT, PadEvents.X) }
+        )
+
+        specialCharacters.add(
+            typeBind("F7", listOf("F7"))
+                .apply { this.bindEvents(PadEvents.LB, PadEvents.LT) }
         )
 
         specialCharacters
@@ -220,7 +240,7 @@ fun getKeyMaps(): MutableList<KeyBind> {
         gyou[2].bindEvents(PadEvents.A)
         gyou[3].bindEvents(PadEvents.X)
         gyou[4].bindEvents(PadEvents.RT)
-        gyou.forEach { it.bindEvents(direction) } 
+        gyou.forEach { it.bindEvents(direction) }
         gyou
     }
 
@@ -251,6 +271,8 @@ fun getKeyMaps(): MutableList<KeyBind> {
 
     keyMaps.addAll(run {
         val handakuon = mutableListOf<KeyBind>()
+        handakuon.addAll(getGyou("0", "1", "2", "3", "4", PadEvents.CENTER))
+        handakuon.addAll(getGyou("5", "6", "7", "8", "9", PadEvents.UP))
         handakuon.addAll(getGyou("ぱ", "ぴ", "ぷ", "ぺ", "ぽ", PadEvents.DOWN))
         handakuon.forEach { it.bindEvents(PadEvents.RB) }
         handakuon
@@ -274,6 +296,16 @@ fun getKeyMaps(): MutableList<KeyBind> {
  */
 fun getHiraganaTable(): MutableMap<String, String> {
     val m = mutableMapOf<String, String>()
+    m["0"] = "0"
+    m["1"] = "1"
+    m["2"] = "2"
+    m["3"] = "3"
+    m["4"] = "4"
+    m["5"] = "5"
+    m["6"] = "6"
+    m["7"] = "7"
+    m["8"] = "8"
+    m["9"] = "9"
     m["あ"] = "a"
     m["い"] = "i"
     m["う"] = "u"
@@ -319,7 +351,7 @@ fun getHiraganaTable(): MutableMap<String, String> {
     m["ろ"] = "ro"
     m["わ"] = "wa"
     m["を"] = "wo"
-    m["ん"] = "n"
+    m["ん"] = "nn"
     m["が"] = "ga"
     m["ぎ"] = "gi"
     m["ぐ"] = "gu"
